@@ -1,0 +1,2 @@
+# MB85RC512T-STM32-HAL
+MB85RC512T FRAM I2C C library for STM32 projects using HAL.
