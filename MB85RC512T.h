@@ -22,8 +22,7 @@ extern "C" {
 #define MB85RC512T_BUFFLEN_TX 64
 #define MB85RC512T_WRITE_LEN (uint32_t)32 // must be smaller than bufflen
 #define MB85RC512T_PRINT 0
-#define MB85RC512T_CMSIS_OS2 0
-
+#define MB85RC512T_CMSIS_OS2 1
 #if MB85RC512T_PRINT == 1
 #define MB85RC512T_TIMEOUT_UART (uint32_t)100 // ms
 #endif
@@ -60,6 +59,7 @@ struct MB85RC512T
 	uint32_t m_timeout;
 #if MB85RC512T_CMSIS_OS2 == 1
 	osMutexId_t *m_mutex_handle;
+	uint32_t m_timeout_mutex;
 #endif
 
 #if MB85RC512T_CMSIS_OS2 == 1

@@ -29,6 +29,7 @@ MB85RC512T_State MB85RC512T_init(struct MB85RC512T *self, I2C_HandleTypeDef *hi2
 	self->m_timeout = MB85RC512T_DEFAULT_TIMEOUT;
 #if MB85RC512T_CMSIS_OS2 == 1
 	self->m_mutex_handle = mutex_handle;
+	self->m_timeout_mutex = osWaitForever;
 #endif
 
 	return MB85RC512T_OK;
@@ -52,7 +53,7 @@ MB85RC512T_State MB85RC512T_write(struct MB85RC512T *self, const uint32_t addres
 	if (address + len - 1 > MB85RC512T_MAX_ADDRESS) return MB85RC512T_ERROR_ADDRESS;
 
 #if MB85RC512T_CMSIS_OS2 == 1
-	if (osMutexAcquire(*self->m_mutex_handle, osWaitForever) != osOK)
+	if (osMutexAcquire(*self->m_mutex_handle, self->m_timeout_mutex) != osOK)
 	{
 		return MB85RC512T_ERROR_MUTEX;
 	}
@@ -105,7 +106,7 @@ MB85RC512T_State MB85RC512T_read(struct MB85RC512T *self, const uint32_t address
 	if (address + len - 1 > MB85RC512T_MAX_ADDRESS) return MB85RC512T_ERROR_ADDRESS;
 
 #if MB85RC512T_CMSIS_OS2 == 1
-	if (osMutexAcquire(*self->m_mutex_handle, osWaitForever) != osOK)
+	if (osMutexAcquire(*self->m_mutex_handle, self->m_timeout_mutex) != osOK)
 	{
 		return MB85RC512T_ERROR_MUTEX;
 	}
@@ -161,7 +162,7 @@ MB85RC512T_State MB85RC512T_reset(struct MB85RC512T *self, const uint8_t value)
     if (!self->m_init) return MB85RC512T_ERROR_INIT;
 
 #if MB85RC512T_CMSIS_OS2 == 1
-	if (osMutexAcquire(*self->m_mutex_handle, osWaitForever) != osOK)
+	if (osMutexAcquire(*self->m_mutex_handle, self->m_timeout_mutex) != osOK)
 	{
 		return MB85RC512T_ERROR_MUTEX;
 	}
@@ -206,7 +207,7 @@ MB85RC512T_State MB85RC512T_print(struct MB85RC512T *self, UART_HandleTypeDef *h
 	if (!self->m_init) return MB85RC512T_ERROR_INIT;
 
 #if MB85RC512T_CMSIS_OS2 == 1
-	if (osMutexAcquire(*self->m_mutex_handle, osWaitForever) != osOK)
+	if (osMutexAcquire(*self->m_mutex_handle, self->m_timeout_mutex) != osOK)
 	{
 		return MB85RC512T_ERROR_MUTEX;
 	}
