@@ -12,6 +12,15 @@
 #include <stdio.h>
 #endif
 
+static MB85RC512T_State deinit(struct MB85RC512T *self);
+static MB85RC512T_State write(struct MB85RC512T *self, const uint32_t address, const uint8_t *data, const size_t len);
+static MB85RC512T_State read(struct MB85RC512T *self, const uint32_t address, uint8_t *data, const size_t len);
+static MB85RC512T_State reset(struct MB85RC512T *self, const uint8_t value);
+#if MB85RC512T_PRINT == 1
+static MB85RC512T_State print(MB85RC512T *self, UART_HandleTypeDef *huart);
+#endif
+
+
 #if MB85RC512T_CMSIS_OS2 == 1
 MB85RC512T_State MB85RC512T_init(struct MB85RC512T *self, I2C_HandleTypeDef *hi2c, const uint8_t address, osMutexId_t *mutex_handle)
 #else
@@ -25,17 +34,24 @@ MB85RC512T_State MB85RC512T_init(struct MB85RC512T *self, I2C_HandleTypeDef *hi2
 
 	self->m_address = address << 1;
 	self->m_hi2c = hi2c;
-	self->m_init = 1;
 	self->m_timeout = MB85RC512T_DEFAULT_TIMEOUT;
 #if MB85RC512T_CMSIS_OS2 == 1
 	self->m_mutex_handle = mutex_handle;
 	self->m_timeout_mutex = osWaitForever;
 #endif
+	self->deinit = deinit;
+	self->write = write;
+	self->read = read;
+	self->reset = reset;
+#if MB85RC512T_PRINT == 1
+	self->print = print;
+#endif
+	self->m_init = 1;
 
 	return MB85RC512T_OK;
 }
 
-MB85RC512T_State MB85RC512T_deinit(struct MB85RC512T *self)
+static MB85RC512T_State deinit(struct MB85RC512T *self)
 {
 	self->m_address = 0;
 	self->m_hi2c = NULL;
@@ -47,7 +63,7 @@ MB85RC512T_State MB85RC512T_deinit(struct MB85RC512T *self)
 	return MB85RC512T_OK;
 }
 
-MB85RC512T_State MB85RC512T_write(struct MB85RC512T *self, const uint32_t address, const uint8_t *data, const size_t len)
+static MB85RC512T_State write(struct MB85RC512T *self, const uint32_t address, const uint8_t *data, const size_t len)
 {
 	if (!self->m_init) return MB85RC512T_ERROR_INIT;
 	if (address + len - 1 > MB85RC512T_MAX_ADDRESS) return MB85RC512T_ERROR_ADDRESS;
@@ -100,7 +116,7 @@ MB85RC512T_State MB85RC512T_write(struct MB85RC512T *self, const uint32_t addres
 	return MB85RC512T_OK;
 }
 
-MB85RC512T_State MB85RC512T_read(struct MB85RC512T *self, const uint32_t address, uint8_t *data, const size_t len)
+static MB85RC512T_State read(struct MB85RC512T *self, const uint32_t address, uint8_t *data, const size_t len)
 {
 	if (!self->m_init) return MB85RC512T_ERROR_INIT;
 	if (address + len - 1 > MB85RC512T_MAX_ADDRESS) return MB85RC512T_ERROR_ADDRESS;
@@ -157,7 +173,7 @@ MB85RC512T_State MB85RC512T_read(struct MB85RC512T *self, const uint32_t address
 	return MB85RC512T_OK;
 }
 
-MB85RC512T_State MB85RC512T_reset(struct MB85RC512T *self, const uint8_t value)
+static MB85RC512T_State reset(struct MB85RC512T *self, const uint8_t value)
 {
     if (!self->m_init) return MB85RC512T_ERROR_INIT;
 
@@ -202,7 +218,7 @@ MB85RC512T_State MB85RC512T_reset(struct MB85RC512T *self, const uint8_t value)
 
 
 #if MB85RC512T_PRINT == 1
-MB85RC512T_State MB85RC512T_print(struct MB85RC512T *self, UART_HandleTypeDef *huart)
+static MB85RC512T_State print(struct MB85RC512T *self, UART_HandleTypeDef *huart)
 {
 	if (!self->m_init) return MB85RC512T_ERROR_INIT;
 

@@ -14,14 +14,14 @@ extern "C" {
 
 #include "main.h"
 
-#define MB85RC512T_VERSION "0.1.3"
+#define MB85RC512T_VERSION "0.1.4"
 #define MB85RC512T_DEFAULT_TIMEOUT (uint32_t)100 // ms
-#define MB85RC512T_INTERRUPT 0
+#define MB85RC512T_INTERRUPT 1
 #define MB85RC512T_MAX_ADDRESS (uint32_t)65536 // bytes
 #define MB85RC512T_BUFFLEN_RX 64
 #define MB85RC512T_BUFFLEN_TX 64
 #define MB85RC512T_WRITE_LEN (uint32_t)32 // must be smaller than bufflen
-#define MB85RC512T_PRINT 0
+#define MB85RC512T_PRINT 1
 #define MB85RC512T_CMSIS_OS2 1
 #if MB85RC512T_PRINT == 1
 #define MB85RC512T_TIMEOUT_UART (uint32_t)100 // ms
@@ -62,11 +62,6 @@ struct MB85RC512T
 	uint32_t m_timeout_mutex;
 #endif
 
-#if MB85RC512T_CMSIS_OS2 == 1
-	MB85RC512T_State (*init)(struct MB85RC512T *self, I2C_HandleTypeDef *hi2c, const uint8_t address, osMutexId_t *mutex_handle);
-#else
-	MB85RC512T_State (*init)(struct MB85RC512T *self, I2C_HandleTypeDef *hi2c, const uint8_t address);
-#endif
 	MB85RC512T_State (*deinit)(struct MB85RC512T *self);
 	MB85RC512T_State (*write)(struct MB85RC512T *self, const uint32_t address, const uint8_t *data, const size_t len);
 	MB85RC512T_State (*read)(struct MB85RC512T *self, const uint32_t address, uint8_t *data, const size_t len);
@@ -81,15 +76,6 @@ MB85RC512T_State MB85RC512T_init(struct MB85RC512T *self, I2C_HandleTypeDef *hi2
 #else
 MB85RC512T_State MB85RC512T_init(struct MB85RC512T *self, I2C_HandleTypeDef *hi2c, const uint8_t address);
 #endif
-MB85RC512T_State MB85RC512T_deinit(struct MB85RC512T *self);
-MB85RC512T_State MB85RC512T_write(struct MB85RC512T *self, const uint32_t address, const uint8_t *data, const size_t len);
-MB85RC512T_State MB85RC512T_read(struct MB85RC512T *self, const uint32_t address, uint8_t *data, const size_t len);
-MB85RC512T_State MB85RC512T_reset(struct MB85RC512T *self, const uint8_t value);
-
-#if MB85RC512T_PRINT == 1
-MB85RC512T_State MB85RC512T_print(MB85RC512T *self, UART_HandleTypeDef *huart);
-#endif
-
 
 #ifdef __cplusplus
 }
