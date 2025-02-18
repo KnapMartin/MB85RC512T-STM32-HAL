@@ -14,14 +14,14 @@ extern "C" {
 
 #include "main.h"
 
-#define MB85RC512T_VERSION "0.0.1"
+#define MB85RC512T_VERSION "0.0.2"
 #define MB85RC512T_DEFAULT_TIMEOUT (uint32_t)100 // ms
 #define MB85RC512T_INTERRUPT 0
 #define MB85RC512T_MAX_ADDRESS (uint32_t)65536 // bytes
 #define MB85RC512T_BUFFLEN_RX 64
 #define MB85RC512T_BUFFLEN_TX 64
 #define MB85RC512T_WRITE_LEN (uint32_t)32 // must be smaller than bufflen
-#define MB85RC512T_PRINT 0
+#define MB85RC512T_PRINT 1
 
 #if MB85RC512T_PRINT == 1
 #define MB85RC512T_TIMEOUT_UART (uint32_t)100 // ms
