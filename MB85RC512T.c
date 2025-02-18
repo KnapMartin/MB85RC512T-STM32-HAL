@@ -12,38 +12,53 @@
 #include <stdio.h>
 #endif
 
-MB85RC512T_State MB85RC512T_init(MB85RC512T *device, I2C_HandleTypeDef *hi2c, const uint8_t address)
+MB85RC512T_State MB85RC512T_init(struct MB85RC512T *self, I2C_HandleTypeDef *hi2c, const uint8_t address)
 {
-	device->m_address = address << 1;
-	device->m_hi2c = hi2c;
-	device->m_init = 1;
-
-	return MB85RC512T_OK;
-}
-
-MB85RC512T_State MB85RC512T_deinit(MB85RC512T *device)
-{
-	device->m_address = 0;
-	device->m_hi2c = NULL;
-	device->m_init = 0;
-
-	return MB85RC512T_OK;
-}
-
-MB85RC512T_State MB85RC512T_write(MB85RC512T *device, const uint32_t address, const uint8_t *data, const size_t len)
-{
-	if (!device->m_init) return MB85RC512T_ERROR_INIT;
-	if (address + len - 1 > MB85RC512T_MAX_ADDRESS) return MB85RC512T_ERROR_ADDRESS;
-
-	device->m_data_tx[0] = (uint8_t)(address >> 8);
-	device->m_data_tx[1] = (uint8_t)(address & 0xFF);
-
-	for (uint32_t ctr = 0; ctr < len; ++ctr)
+	if (address < 0x08 || address > 0x77)
 	{
-		device->m_data_tx[ctr + 2] = data[ctr];
+		return MB85RC512T_ERROR_I2C_ADDRESS;
 	}
 
-	if (HAL_I2C_Master_Transmit(device->m_hi2c, device->m_address, device->m_data_tx, len + 2, MB85RC512T_TIMEOUT) != HAL_OK)
+	self->m_address = address << 1;
+	self->m_hi2c = hi2c;
+	self->m_init = 1;
+	self->m_timeout = MB85RC512T_DEFAULT_TIMEOUT;
+
+	return MB85RC512T_OK;
+}
+
+MB85RC512T_State MB85RC512T_deinit(struct MB85RC512T *self)
+{
+	self->m_address = 0;
+	self->m_hi2c = NULL;
+	self->m_init = 0;
+
+	return MB85RC512T_OK;
+}
+
+MB85RC512T_State MB85RC512T_write(struct MB85RC512T *self, const uint32_t address, const uint8_t *data, const size_t len)
+{
+	if (!self->m_init) return MB85RC512T_ERROR_INIT;
+	if (address + len - 1 > MB85RC512T_MAX_ADDRESS) return MB85RC512T_ERROR_ADDRESS;
+
+#if MB85RC512T_INTERRUPT == 1
+	uint32_t timeout = HAL_GetTick() + self->m_timeout;
+	while (self->m_hi2c->State != HAL_I2C_STATE_READY)
+	{
+		if (HAL_GetTick() > timeout) return MB85RC512T_ERROR_TIMEOUT;
+	}
+#endif
+
+	self->m_data_tx[0] = (uint8_t)(address >> 8);
+	self->m_data_tx[1] = (uint8_t)(address & 0xFF);
+
+	memcpy(&self->m_data_tx[2], data, len);
+
+#if MB85RC512T_INTERRUPT == 1
+	if (HAL_I2C_Master_Transmit_IT(self->m_hi2c, self->m_address, self->m_data_tx, len + 2) != HAL_OK)
+#else
+	if (HAL_I2C_Master_Transmit(self->m_hi2c, self->m_address, self->m_data_tx, len + 2, self->m_timeout) != HAL_OK)
+#endif
 	{
 		return MB85RC512T_ERROR_TX;
 	}
@@ -51,73 +66,83 @@ MB85RC512T_State MB85RC512T_write(MB85RC512T *device, const uint32_t address, co
 	return MB85RC512T_OK;
 }
 
-MB85RC512T_State MB85RC512T_read(MB85RC512T *device, const uint32_t address, uint8_t *data, const size_t len)
+MB85RC512T_State MB85RC512T_read(struct MB85RC512T *self, const uint32_t address, uint8_t *data, const size_t len)
 {
-	if (!device->m_init) return MB85RC512T_ERROR_INIT;
+	if (!self->m_init) return MB85RC512T_ERROR_INIT;
 	if (address + len - 1 > MB85RC512T_MAX_ADDRESS) return MB85RC512T_ERROR_ADDRESS;
 
-	device->m_data_tx[0] = (uint8_t)(address >> 8);
-	device->m_data_tx[1] = (uint8_t)(address & 0xFF);
+#if MB85RC512T_INTERRUPT == 1
+	uint32_t timeout = HAL_GetTick() + self->m_timeout;
+	while (self->m_hi2c->State != HAL_I2C_STATE_READY)
+	{
+		if (HAL_GetTick() > timeout) return MB85RC512T_ERROR_TIMEOUT;
+	}
+#endif
 
-	if (HAL_I2C_Master_Transmit(device->m_hi2c, device->m_address, device->m_data_tx, 2, MB85RC512T_TIMEOUT) != HAL_OK)
+	self->m_data_tx[0] = (uint8_t)(address >> 8);
+	self->m_data_tx[1] = (uint8_t)(address & 0xFF);
+
+	if (HAL_I2C_Master_Transmit(self->m_hi2c, self->m_address, self->m_data_tx, 2, self->m_timeout) != HAL_OK)
 	{
 		return MB85RC512T_ERROR_TX;
 	}
 
-	if (HAL_I2C_Master_Receive(device->m_hi2c, device->m_address, device->m_data_rx, len, MB85RC512T_TIMEOUT) != HAL_OK)
+	if (HAL_I2C_Master_Receive(self->m_hi2c, self->m_address, self->m_data_rx, len, self->m_timeout) != HAL_OK)
 	{
 		return MB85RC512T_ERROR_RX;
 	}
 
-	memcpy(data, device->m_data_rx, len);
+	memcpy(data, self->m_data_rx, len);
 
 	return MB85RC512T_OK;
 }
 
-MB85RC512T_State MB85RC512T_reset(MB85RC512T *device, const uint8_t value)
+MB85RC512T_State MB85RC512T_reset(struct MB85RC512T *self, const uint8_t value)
 {
-	if (!device->m_init) return MB85RC512T_ERROR_INIT;
+    if (!self->m_init) return MB85RC512T_ERROR_INIT;
 
-	uint32_t writeLen = MB85RC512T_WRITE_LEN;
+    uint32_t writeLen = MB85RC512T_WRITE_LEN;
+    uint32_t pageSize = MB85RC512T_WRITE_LEN;
 
-	for (uint32_t byteCtr = 0; byteCtr < writeLen; ++byteCtr)
-	{
-		device->m_data_tx[byteCtr + 2] = value;
-	}
+    memset(&self->m_data_tx[2], value, writeLen);
 
-	for (uint32_t address = 0; address < MB85RC512T_MAX_ADDRESS; address += writeLen)
-	{
-		device->m_data_tx[0] = (uint8_t)(address >> 8);
-		device->m_data_tx[1] = (uint8_t)(address & 0xFF);
+    for (uint32_t address = 0; address < MB85RC512T_MAX_ADDRESS; address += writeLen)
+    {
+        uint32_t remainingInPage = pageSize - (address % pageSize);
+        uint32_t chunkSize = (writeLen > remainingInPage) ? remainingInPage : writeLen;
 
-		if (HAL_I2C_Master_Transmit(device->m_hi2c, device->m_address, device->m_data_tx, writeLen + 2, MB85RC512T_TIMEOUT) != HAL_OK)
-		{
-			return MB85RC512T_ERROR_TX;
-		}
-	}
+        self->m_data_tx[0] = (uint8_t)(address >> 8);
+        self->m_data_tx[1] = (uint8_t)(address & 0xFF);
 
-	return MB85RC512T_OK;
+        if (HAL_I2C_Master_Transmit(self->m_hi2c, self->m_address, self->m_data_tx, chunkSize + 2, self->m_timeout) != HAL_OK)
+        {
+            return MB85RC512T_ERROR_TX;
+        }
+    }
+
+    return MB85RC512T_OK;
 }
+
 
 #if MB85RC512T_PRINT == 1
-MB85RC512T_State MB85RC512T_print(MB85RC512T *device, UART_HandleTypeDef *huart)
+MB85RC512T_State MB85RC512T_print(struct MB85RC512T *self, UART_HandleTypeDef *huart)
 {
-	if (!device->m_init) return MB85RC512T_ERROR_INIT;
+	if (!self->m_init) return MB85RC512T_ERROR_INIT;
 
 	uint32_t readLen = 8;
 	uint8_t printBuff[16];
 
 	for (uint32_t address = 0; address < MB85RC512T_MAX_ADDRESS; address += readLen)
 	{
-		device->m_data_tx[0] = (uint8_t)(address >> 8);
-		device->m_data_tx[1] = (uint8_t)(address & 0xFF);
+		self->m_data_tx[0] = (uint8_t)(address >> 8);
+		self->m_data_tx[1] = (uint8_t)(address & 0xFF);
 
-		if (HAL_I2C_Master_Transmit(device->m_hi2c, device->m_address, device->m_data_tx, 2, MB85RC512T_TIMEOUT) != HAL_OK)
+		if (HAL_I2C_Master_Transmit(self->m_hi2c, self->m_address, self->m_data_tx, 2, self->m_timeout) != HAL_OK)
 		{
 			return MB85RC512T_ERROR_TX;
 		}
 
-		if (HAL_I2C_Master_Receive(device->m_hi2c, device->m_address, device->m_data_rx, readLen, MB85RC512T_TIMEOUT) != HAL_OK)
+		if (HAL_I2C_Master_Receive(self->m_hi2c, self->m_address, self->m_data_rx, readLen, self->m_timeout) != HAL_OK)
 		{
 			return MB85RC512T_ERROR_RX;
 		}
@@ -130,7 +155,7 @@ MB85RC512T_State MB85RC512T_print(MB85RC512T *device, UART_HandleTypeDef *huart)
 
 		for (uint32_t byteCtr = 0; byteCtr < readLen; ++byteCtr)
 		{
-			sprintf((char*)printBuff, " %02X", device->m_data_rx[byteCtr]);
+			sprintf((char*)printBuff, " %02X", self->m_data_rx[byteCtr]);
 			if (HAL_UART_Transmit(huart, printBuff, strlen((char*)printBuff), MB85RC512T_TIMEOUT_UART) != HAL_OK)
 			{
 				return MB85RC512T_ERROR_UART;
