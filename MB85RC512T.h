@@ -14,17 +14,22 @@ extern "C" {
 
 #include "main.h"
 
-#define MB85RC512T_VERSION "0.0.2"
+#define MB85RC512T_VERSION "0.1.3"
 #define MB85RC512T_DEFAULT_TIMEOUT (uint32_t)100 // ms
 #define MB85RC512T_INTERRUPT 0
 #define MB85RC512T_MAX_ADDRESS (uint32_t)65536 // bytes
 #define MB85RC512T_BUFFLEN_RX 64
 #define MB85RC512T_BUFFLEN_TX 64
 #define MB85RC512T_WRITE_LEN (uint32_t)32 // must be smaller than bufflen
-#define MB85RC512T_PRINT 1
+#define MB85RC512T_PRINT 0
+#define MB85RC512T_CMSIS_OS2 0
 
 #if MB85RC512T_PRINT == 1
 #define MB85RC512T_TIMEOUT_UART (uint32_t)100 // ms
+#endif
+
+#if MB85RC512T_CMSIS_OS2 == 1
+#include "cmsis_os.h"
 #endif
 
 typedef enum
@@ -38,6 +43,9 @@ typedef enum
 	MB85RC512T_ERROR_RX,
 	MB85RC512T_ERROR_UART,
 	MB85RC512T_ERROR_TIMEOUT,
+#if MB85RC512T_CMSIS_OS2 == 1
+	MB85RC512T_ERROR_MUTEX,
+#endif
 } MB85RC512T_State;
 
 typedef struct MB85RC512T MB85RC512T;
@@ -50,8 +58,15 @@ struct MB85RC512T
 	uint8_t m_data_rx[MB85RC512T_BUFFLEN_RX];
 	uint8_t m_data_tx[MB85RC512T_BUFFLEN_TX];
 	uint32_t m_timeout;
+#if MB85RC512T_CMSIS_OS2 == 1
+	osMutexId_t *m_mutex_handle;
+#endif
 
+#if MB85RC512T_CMSIS_OS2 == 1
+	MB85RC512T_State (*init)(struct MB85RC512T *self, I2C_HandleTypeDef *hi2c, const uint8_t address, osMutexId_t *mutex_handle);
+#else
 	MB85RC512T_State (*init)(struct MB85RC512T *self, I2C_HandleTypeDef *hi2c, const uint8_t address);
+#endif
 	MB85RC512T_State (*deinit)(struct MB85RC512T *self);
 	MB85RC512T_State (*write)(struct MB85RC512T *self, const uint32_t address, const uint8_t *data, const size_t len);
 	MB85RC512T_State (*read)(struct MB85RC512T *self, const uint32_t address, uint8_t *data, const size_t len);
@@ -61,7 +76,11 @@ struct MB85RC512T
 #endif
 };
 
+#if MB85RC512T_CMSIS_OS2 == 1
+MB85RC512T_State MB85RC512T_init(struct MB85RC512T *self, I2C_HandleTypeDef *hi2c, const uint8_t address, osMutexId_t *mutex_handle);
+#else
 MB85RC512T_State MB85RC512T_init(struct MB85RC512T *self, I2C_HandleTypeDef *hi2c, const uint8_t address);
+#endif
 MB85RC512T_State MB85RC512T_deinit(struct MB85RC512T *self);
 MB85RC512T_State MB85RC512T_write(struct MB85RC512T *self, const uint32_t address, const uint8_t *data, const size_t len);
 MB85RC512T_State MB85RC512T_read(struct MB85RC512T *self, const uint32_t address, uint8_t *data, const size_t len);
